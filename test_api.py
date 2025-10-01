@@ -4,41 +4,51 @@ import requests
 import threading
 from app import create_app
 import time
-
+import pytest
 
 TEST_PORT = 5000
 BASE_URL = "http://127.0.0.1:" + str(TEST_PORT)
 
-def run_server():
-    app = create_app()
-    app.run(host="127.0.0.1", port=TEST_PORT, debug=False)
-
 # если запускать сервер 'на боевом' -> поток сервера заблочит выполнение
 # поэтому, поток сервера в отдельный - в виде демона, который прибьется
 # по окончанию теста
-server_thread = threading.Thread(target=run_server, daemon=True)
-server_thread.start()
+@pytest.fixture(scope="session")
+def server():
+    def run_server():
+        app = create_app()
+        app.config['TESTING'] = True
+        app.run(host="127.0.0.1", port=TEST_PORT, debug=False, use_reloader=False)
 
-# на всякий случай
-time.sleep(1)
+    thread = threading.Thread(target=run_server, daemon=True)
+    thread.start()
+    time.sleep(1.5)
+    yield BASE_URL
 
-# проверка, что сервак вообще живой
-def test_api_alive():
-    url = BASE_URL + "/gross_violations/2/objects_gv"
+def test_api_alive(server):
+    """проверка, что сервак вообще живой"""
+    url = server + "/gross_violations/2/objects_gv"
     response = requests.get(url)
-    print('Response: ' + response.text)
     assert response.status_code == 200
 
-# проверка, что корректно обрабатывается другой вид данных
-def test_api_uncorrect_str():
-    url = BASE_URL + "/gross_violations/fdfdadsfs/objects_gv"
+def test_api_uncorrect_str(server):
+    """проверка, что корректно обрабатывается другой вид данных"""
+    url = server + "/gross_violations/fdfdadsfs/objects_gv"
     response = requests.get(url)
-    print('Response: ' + response.text)
     assert response.status_code == 404
 
-# проверка, что корректно обрабатывается несуществующий uid
-def test_api_uncorrect_uid():
-    url = BASE_URL + "/gross_violations/9999999/objects_gv"
+def test_api_uncorrect_uid(server):
+    """проверка, что корректно обрабатывается несуществующий uid"""
+    url = server + "/gross_violations/9999999/objects_gv"
     response = requests.get(url)
-    print('Response: ' + response.text)
     assert response.status_code == 200
+
+def test_api_test_data(server):
+    """# проверка на основе тестовых данных"""
+    url = server + "/gross_violations/4/objects_gv"
+    response = requests.get(url)
+    assert response.status_code == 200
+
+    data = response.json()
+    actual_uids = {obj["uid"] for obj in data}
+    assert actual_uids == {1, 2, 3}
+
