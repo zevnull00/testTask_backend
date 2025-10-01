@@ -1,0 +1,9 @@
+# python 3.5.3
+# Версию python и библиотек можно взять выше, если что-то не устанавливается (но SQLAlchemy должно быть версии 1)
+
+Flask==1.0.2
+Flask-SQLAlchemy==2.1
+psycopg2==2.7
+SQLAlchemy==1.0.15
+marshmallow==3.2.2
+marshmallow-sqlalchemy==0.17.2
